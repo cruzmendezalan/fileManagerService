@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">E1_Copia_Contenido_V4</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="menu_settings">Settings</string>
+    <string name="downloadticker">Descargando archivos</string>
+    <string name="contenttitle">La descarga esta en Progreso</string>
+
+</resources>
