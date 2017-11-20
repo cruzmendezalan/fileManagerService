@@ -3,8 +3,6 @@ package com.devops.krakenlabs.filemanager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.hardware.usb.UsbAccessory;
-import android.hardware.usb.UsbManager;
 import android.os.Environment;
 import android.os.Handler;
 import android.support.v4.content.ContextCompat;
@@ -28,57 +26,93 @@ import java.util.List;
 public class ReceiverUSB extends BroadcastReceiver {
     private static String TAG = ReceiverUSB.class.getSimpleName();
     private Context context;
+
+    public static String PROMOS = "/promos";
+    public static String PROMOSMOVIES = "/promosmovies";
+    public static String BANNERS = "/banners";
+
     @Override
     public void onReceive(Context context, Intent intent) {
         this.context = context;
         Log.e(TAG, "onReceive: ReceiverUSB" );
+        //We need a delay 5segs because SO is mounting USB
         new Handler().postDelayed(new Runnable() {
             @Override
             public void run() {
-                showUSB();
+                fileEngine();
             }
         }, 5000);
 
-        sendToast();
-        if (intent.getAction().equalsIgnoreCase(
-                "android.intent.action.UMS_CONNECTED")) {
-            Log.e(TAG, "onReceive: android.intent.action.UMS_CONNECTED" );
-        }
+        sendToast("Inicializando motor de archivos");
     }
-    private void sendToast(){
-        Toast.makeText(context,"USB conectada",
+    private void sendToast(String msg){
+        Toast.makeText(context,msg,
                 Toast.LENGTH_SHORT).show();
     }
 
-    private void showUSB(){
-        Log.e(TAG, "showUSB() called");
+    private void fileEngine(){
+        sendToast("Buscando archivos nuevos");
         File[] externalStorageFiles= ContextCompat.getExternalFilesDirs(context,null);
         for (int i = 0; i <externalStorageFiles.length; i++) {
-            Log.e(TAG, "showUSB: "+externalStorageFiles[i].getAbsolutePath() );
+            Log.e(TAG, "fileEngine: "+externalStorageFiles[i].getAbsolutePath() );
         }
 
-        StorageUtils storageUtils = new StorageUtils();
-        List<StorageUtils.StorageInfo> storageInfoList = storageUtils.getStorageList();
-        for (StorageUtils.StorageInfo sto: storageInfoList
-             ) {
-            File externalFolder = new File(sto.path);
-            if (externalFolder.isDirectory()){
-                Log.w(TAG, "Existe y es directorio "+sto.path);
-                File[] listOfFiles = externalFolder.listFiles();
+        //Validating if local SDCard is avalilable
+        File externalSDCard = new File("/mnt/external_sd");
+        if (externalSDCard.exists()){
+            sendToast("Se a encontrado SD Externa montada..");
+            StorageUtils storageUtils = new StorageUtils();
+            List<StorageUtils.StorageInfo> storageInfoList = storageUtils.getStorageList();
+            for (StorageUtils.StorageInfo sto: storageInfoList) {
+                //Extract only from usb dispositives
+                if (sto.path.contains("usb_storage")){
+                    File externalUsbPromos = new File(sto.path+PROMOS);
+                    displayContentFolder(externalUsbPromos);
 
-                for (int i = 0; i < listOfFiles.length; i++) {
-                    if (listOfFiles[i].isFile()) {
-                        Log.e(TAG,"File " + listOfFiles[i].getName());
-                    } else if (listOfFiles[i].isDirectory()) {
-                        Log.e(TAG,"Directory " + listOfFiles[i].getName());
+                    File externalUsbPromosMovies = new File(sto.path+PROMOSMOVIES);
+                    displayContentFolder(externalUsbPromosMovies);
+
+                    File externalUsbBanners = new File(sto.path+BANNERS);
+                    displayContentFolder(externalUsbBanners);
+                    try {
+                        sendToast("Copiando promos..");
+                        copyDirectoryOneLocationToAnotherLocation(externalUsbPromos,new File("/mnt/external_sd"+PROMOS));
+                        sendToast("Copiando Movies..");
+                        copyDirectoryOneLocationToAnotherLocation(externalUsbPromosMovies,new File("/mnt/external_sd"+PROMOSMOVIES));
+                        sendToast("Copiando Banners..");
+                        copyDirectoryOneLocationToAnotherLocation(externalUsbBanners,new File("/mnt/external_sd"+BANNERS));
+                    } catch (IOException e) {
+                        e.printStackTrace();
                     }
+                    Log.w(TAG, "Existe y es directorio "+sto.path);
                 }
             }
-            Log.e(TAG, "showUSB: "+sto.getDisplayName() );
+        }
+        sendToast("Proceso completado, usted puede desmontar la USB");
+    }
+
+    /**
+     * If u need see the content of folder, call this method
+     * @param externalFolder
+     */
+    private void displayContentFolder(File externalFolder){
+        if (externalFolder.exists()&&externalFolder.isDirectory()){
+            File[] listOfFiles = externalFolder.listFiles();
+
+            for (int i = 0; i < listOfFiles.length; i++) {
+                if (listOfFiles[i].isFile()) {
+                    Log.e(TAG,"File " + listOfFiles[i].getName());
+                } else if (listOfFiles[i].isDirectory()) {
+                    Log.e(TAG,"Directory " + listOfFiles[i].getName());
+                }
+            }
         }
     }
 
-
+    /**
+     * Internal SDcard is available to write
+     * @return
+     */
     private boolean canWriteToFlash() {
         String state = Environment.getExternalStorageState();
         if (Environment.MEDIA_MOUNTED.equals(state)) {
@@ -91,6 +125,12 @@ public class ReceiverUSB extends BroadcastReceiver {
         }
     }
 
+    /**
+     * Copy only one file
+     * @param inputPath
+     * @param inputFile
+     * @param outputPath
+     */
     private void copyFile(String inputPath, String inputFile, String outputPath) {
         InputStream in = null;
         OutputStream out = null;
@@ -128,29 +168,40 @@ public class ReceiverUSB extends BroadcastReceiver {
         }
     }
 
+    /**
+     * Move all content from sourcelocation to targetlocation
+     * @param sourceLocation
+     * @param targetLocation
+     * @throws IOException
+     */
     public static void copyDirectoryOneLocationToAnotherLocation(File sourceLocation, File targetLocation) throws IOException {
+        Log.d(TAG, "copyDirectoryOneLocationToAnotherLocation() called with: sourceLocation = [" + sourceLocation + "], targetLocation = [" + targetLocation + "]");
         if (sourceLocation.isDirectory()) {
             if (!targetLocation.exists()) {
                 targetLocation.mkdir();
             }
 
             String[] children = sourceLocation.list();
-            for (int i = 0; i < sourceLocation.listFiles().length; i++) {
+            for (int i = 0; i < sourceLocation.listFiles().length   ; i++) {
                 copyDirectoryOneLocationToAnotherLocation(new File(sourceLocation, children[i]),
                         new File(targetLocation, children[i]));
             }
         } else {
-            InputStream in = new FileInputStream(sourceLocation);
-            OutputStream out = new FileOutputStream(targetLocation);
+            if (sourceLocation.exists()){
+                InputStream in = new FileInputStream(sourceLocation);
+                OutputStream out = new FileOutputStream(targetLocation);
 
-            // Copy the bits from instream to outstream
-            byte[] buf = new byte[1024];
-            int len;
-            while ((len = in.read(buf)) > 0) {
-                out.write(buf, 0, len);
+                // Copy the bits from instream to outstream
+                byte[] buf = new byte[1024];
+                int len;
+                while ((len = in.read(buf)) > 0) {
+                    out.write(buf, 0, len);
+                }
+                in.close();
+                out.close();
+            }else{
+                Log.e(TAG, "copyDirectoryOneLocationToAnotherLocation: " );
             }
-            in.close();
-            out.close();
         }
 
     }
