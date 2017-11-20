@@ -10,8 +10,6 @@ import android.util.Log;
 
 public class HomeActivity extends AppCompatActivity {
     private static final String TAG = HomeActivity.class.getSimpleName();
-
-    public static final String BROADCAST = "android.intent.action.MEDIA_MOUNTED";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

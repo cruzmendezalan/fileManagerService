@@ -3,7 +3,11 @@ package com.devops.krakenlabs.filemanager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.hardware.usb.UsbAccessory;
+import android.hardware.usb.UsbManager;
 import android.os.Environment;
+import android.os.Handler;
+import android.support.v4.content.ContextCompat;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -14,6 +18,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 
 /**
  * Created by Alan Giovani Cruz Méndez on 20/11/17 11:36.9
@@ -27,6 +32,13 @@ public class ReceiverUSB extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         this.context = context;
         Log.e(TAG, "onReceive: ReceiverUSB" );
+        new Handler().postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                showUSB();
+            }
+        }, 5000);
+
         sendToast();
         if (intent.getAction().equalsIgnoreCase(
                 "android.intent.action.UMS_CONNECTED")) {
@@ -36,6 +48,34 @@ public class ReceiverUSB extends BroadcastReceiver {
     private void sendToast(){
         Toast.makeText(context,"USB conectada",
                 Toast.LENGTH_SHORT).show();
+    }
+
+    private void showUSB(){
+        Log.e(TAG, "showUSB() called");
+        File[] externalStorageFiles= ContextCompat.getExternalFilesDirs(context,null);
+        for (int i = 0; i <externalStorageFiles.length; i++) {
+            Log.e(TAG, "showUSB: "+externalStorageFiles[i].getAbsolutePath() );
+        }
+
+        StorageUtils storageUtils = new StorageUtils();
+        List<StorageUtils.StorageInfo> storageInfoList = storageUtils.getStorageList();
+        for (StorageUtils.StorageInfo sto: storageInfoList
+             ) {
+            File externalFolder = new File(sto.path);
+            if (externalFolder.isDirectory()){
+                Log.w(TAG, "Existe y es directorio "+sto.path);
+                File[] listOfFiles = externalFolder.listFiles();
+
+                for (int i = 0; i < listOfFiles.length; i++) {
+                    if (listOfFiles[i].isFile()) {
+                        Log.e(TAG,"File " + listOfFiles[i].getName());
+                    } else if (listOfFiles[i].isDirectory()) {
+                        Log.e(TAG,"Directory " + listOfFiles[i].getName());
+                    }
+                }
+            }
+            Log.e(TAG, "showUSB: "+sto.getDisplayName() );
+        }
     }
 
 
